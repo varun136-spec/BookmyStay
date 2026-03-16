@@ -1,44 +1,32 @@
-abstract class Room
+class RoomInventory
 {
-    String roomType;
-    int availableRooms;
+    java.util.HashMap<String, Integer> inventory;
 
-    Room(String roomType, int availableRooms)
+    RoomInventory()
     {
-        this.roomType = roomType;
-        this.availableRooms = availableRooms;
+        inventory = new java.util.HashMap<String, Integer>();
     }
 
-    abstract void displayRoomInfo();
-}
-
-class StandardRoom extends Room
-{
-    StandardRoom(int availableRooms)
+    void registerRoom(String roomType, int count)
     {
-        super("Standard Room", availableRooms);
+        inventory.put(roomType, count);
     }
 
-    void displayRoomInfo()
+    void updateAvailability(String roomType, int newCount)
     {
-        System.out.println("Room Type: " + roomType);
-        System.out.println("Available Rooms: " + availableRooms);
+        inventory.put(roomType, newCount);
+    }
+
+    void displayInventory()
+    {
+        System.out.println("\nCurrent Room Inventory:");
         System.out.println("----------------------------");
-    }
-}
 
-class DeluxeRoom extends Room
-{
-    DeluxeRoom(int availableRooms)
-    {
-        super("Deluxe Room", availableRooms);
-    }
-
-    void displayRoomInfo()
-    {
-        System.out.println("Room Type: " + roomType);
-        System.out.println("Available Rooms: " + availableRooms);
-        System.out.println("----------------------------");
+        for (String roomType : inventory.keySet())
+        {
+            System.out.println("Room Type: " + roomType +
+                    " | Available: " + inventory.get(roomType));
+        }
     }
 }
 
@@ -50,14 +38,21 @@ public class BookmyStay
         System.out.println("       Welcome to BookMyStay     ");
         System.out.println("=================================");
 
-        StandardRoom standard = new StandardRoom(10);
-        DeluxeRoom deluxe = new DeluxeRoom(5);
+        // Initialize inventory system
+        RoomInventory inventory = new RoomInventory();
 
-        System.out.println("\nRoom Availability:\n");
+        // Register room types
+        inventory.registerRoom("Standard Room", 10);
+        inventory.registerRoom("Deluxe Room", 5);
+        inventory.registerRoom("Suite Room", 3);
 
-        standard.displayRoomInfo();
-        deluxe.displayRoomInfo();
+        // Display current inventory
+        inventory.displayInventory();
 
-        System.out.println("Application Terminated.");
+        // Update availability
+        inventory.updateAvailability("Standard Room", 8);
+
+        System.out.println("\nAfter Updating Availability:");
+        inventory.displayInventory();
     }
 }
