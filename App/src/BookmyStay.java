@@ -1,67 +1,87 @@
-class Reservation
-{
-    String guestName;
+import java.util.*;
+
+class BookingRequest {
+    String customerName;
     String roomType;
 
-    Reservation(String guestName, String roomType)
-    {
-        this.guestName = guestName;
+    BookingRequest(String customerName, String roomType) {
+        this.customerName = customerName;
         this.roomType = roomType;
-    }
-
-    void display()
-    {
-        System.out.println("Guest: " + guestName + " | Requested Room: " + roomType);
     }
 }
 
-class BookingRequestQueue
-{
-    java.util.Queue<Reservation> queue;
+class InventoryService {
+    private Map<String, Integer> inventory = new HashMap<>();
+    private Set<String> allocatedRooms = new HashSet<>();
 
-    BookingRequestQueue()
-    {
-        queue = new java.util.LinkedList<Reservation>();
+    public InventoryService() {
+        inventory.put("Single", 2);
+        inventory.put("Double", 2);
     }
 
-    void addRequest(Reservation r)
-    {
-        queue.add(r);
-        System.out.println("Booking request added for " + r.guestName);
+    public boolean isAvailable(String roomType) {
+        return inventory.getOrDefault(roomType, 0) > 0;
     }
 
-    void showQueue()
-    {
-        System.out.println("\nCurrent Booking Queue (FCFS):");
-        System.out.println("-------------------------------");
+    public String allocateRoom(String roomType) {
+        if (!isAvailable(roomType)) return null;
 
-        for (Reservation r : queue)
-        {
-            r.display();
+        String roomId = UUID.randomUUID().toString();
+
+        while (allocatedRooms.contains(roomId)) {
+            roomId = UUID.randomUUID().toString();
+        }
+
+        allocatedRooms.add(roomId);
+        inventory.put(roomType, inventory.get(roomType) - 1);
+
+        return roomId;
+    }
+}
+
+class BookingService {
+    private Queue<BookingRequest> requestQueue = new LinkedList<>();
+    private InventoryService inventoryService;
+
+    public BookingService(InventoryService inventoryService) {
+        this.inventoryService = inventoryService;
+    }
+
+    public void addRequest(BookingRequest request) {
+        requestQueue.add(request);
+    }
+
+    public void processRequest() {
+        if (requestQueue.isEmpty()) {
+            System.out.println("No booking requests.");
+            return;
+        }
+
+        BookingRequest request = requestQueue.poll();
+
+        if (inventoryService.isAvailable(request.roomType)) {
+            String roomId = inventoryService.allocateRoom(request.roomType);
+            System.out.println("Booking Confirmed for " + request.customerName +
+                    " | Room Type: " + request.roomType +
+                    " | Room ID: " + roomId);
+        } else {
+            System.out.println("Booking Failed for " + request.customerName +
+                    " | No rooms available");
         }
     }
 }
 
-public class BookmyStay
-{
-    public static void main(String[] args)
-    {
-        System.out.println("===== BookMyStay Booking Requests =====");
+public class Main {
+    public static void main(String[] args) {
+        InventoryService inventory = new InventoryService();
+        BookingService bookingService = new BookingService(inventory);
 
-        BookingRequestQueue requestQueue = new BookingRequestQueue();
+        bookingService.addRequest(new BookingRequest("Varun", "Single"));
+        bookingService.addRequest(new BookingRequest("Rahul", "Double"));
+        bookingService.addRequest(new BookingRequest("Ankit", "Single"));
 
-        // Guests submit booking requests
-        Reservation r1 = new Reservation("Rahul", "Standard Room");
-        Reservation r2 = new Reservation("Anita", "Deluxe Room");
-        Reservation r3 = new Reservation("Karan", "Suite Room");
-
-        requestQueue.addRequest(r1);
-        requestQueue.addRequest(r2);
-        requestQueue.addRequest(r3);
-
-        // Display queue in arrival order
-        requestQueue.showQueue();
-
-        System.out.println("\nRequests are waiting for allocation...");
+        bookingService.processRequest();
+        bookingService.processRequest();
+        bookingService.processRequest();
     }
 }
