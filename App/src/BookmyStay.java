@@ -1,18 +1,12 @@
 import java.util.*;
 
-class Reservation {
-    private int reservationId;
+class BookingRequest {
     private String guestName;
     private int rooms;
 
-    public Reservation(int reservationId, String guestName, int rooms) {
-        this.reservationId = reservationId;
+    public BookingRequest(String guestName, int rooms) {
         this.guestName = guestName;
         this.rooms = rooms;
-    }
-
-    public int getReservationId() {
-        return reservationId;
     }
 
     public String getGuestName() {
@@ -24,101 +18,78 @@ class Reservation {
     }
 }
 
-class BookingHistory {
-    private Map<Integer, Reservation> bookings = new HashMap<>();
+class BookingQueue {
+    private Queue<BookingRequest> queue = new LinkedList<>();
 
-    public void addReservation(Reservation r) {
-        bookings.put(r.getReservationId(), r);
+    public synchronized void addRequest(BookingRequest request) {
+        queue.add(request);
+        notify(); // wake up waiting threads
     }
 
-    public Reservation getReservation(int id) {
-        return bookings.get(id);
-    }
-
-    public void removeReservation(int id) {
-        bookings.remove(id);
-    }
-
-    public boolean exists(int id) {
-        return bookings.containsKey(id);
+    public synchronized BookingRequest getRequest() {
+        while (queue.isEmpty()) {
+            try {
+                wait(); // wait until request comes
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        return queue.poll();
     }
 }
 
-class CancellationService {
-
+class BookingProcessor {
     private int availableRooms = 5;
 
-    // Each reservation has its own stack (better design)
-    private Map<Integer, Stack<String>> rollbackMap = new HashMap<>();
+    public synchronized void processBooking(BookingRequest request) {
 
-    public void confirmBooking(Reservation r, BookingHistory history) {
+        System.out.println(Thread.currentThread().getName() +
+                " processing " + request.getGuestName());
 
-        if (r.getRooms() > availableRooms) {
-            System.out.println("Booking failed: Not enough rooms.");
-            return;
+        if (request.getRooms() <= availableRooms) {
+            availableRooms -= request.getRooms();
+            System.out.println("Booking confirmed for " + request.getGuestName() +
+                    " | Rooms left: " + availableRooms);
+        } else {
+            System.out.println("Booking failed for " + request.getGuestName() +
+                    " | Not enough rooms");
         }
+    }
+}
 
-        availableRooms -= r.getRooms();
-        history.addReservation(r);
+class Worker extends Thread {
+    private BookingQueue queue;
+    private BookingProcessor processor;
 
-        Stack<String> stack = new Stack<>();
-
-        for (int i = 1; i <= r.getRooms(); i++) {
-            String roomId = "Room-" + (availableRooms + i);
-            stack.push(roomId);
-        }
-
-        rollbackMap.put(r.getReservationId(), stack);
-
-        System.out.println("Booking confirmed for " + r.getGuestName());
-        System.out.println("Available Rooms: " + availableRooms);
+    public Worker(BookingQueue queue, BookingProcessor processor, String name) {
+        super(name);
+        this.queue = queue;
+        this.processor = processor;
     }
 
-    public void cancelBooking(int reservationId, BookingHistory history) {
-
-        // ✅ Validation
-        if (!history.exists(reservationId)) {
-            System.out.println("Cancellation failed: Reservation not found.");
-            return;
+    public void run() {
+        for (int i = 0; i < 2; i++) {
+            BookingRequest req = queue.getRequest();
+            processor.processBooking(req);
         }
-
-        Reservation r = history.getReservation(reservationId);
-        Stack<String> stack = rollbackMap.get(reservationId);
-
-        System.out.println("Cancelling booking for " + r.getGuestName());
-
-        // ✅ LIFO rollback
-        while (stack != null && !stack.isEmpty()) {
-            String room = stack.pop();
-            System.out.println("Releasing " + room);
-        }
-
-        // ✅ Inventory restoration
-        availableRooms += r.getRooms();
-
-        // ✅ Remove from system
-        history.removeReservation(reservationId);
-        rollbackMap.remove(reservationId);
-
-        System.out.println("Cancellation successful.");
-        System.out.println("Available Rooms after rollback: " + availableRooms);
     }
 }
 
 public class BookmyStay {
     public static void main(String[] args) {
 
-        BookingHistory history = new BookingHistory();
-        CancellationService service = new CancellationService();
+        BookingQueue queue = new BookingQueue();
+        BookingProcessor processor = new BookingProcessor();
 
-        Reservation r1 = new Reservation(101, "Varun", 2);
-        Reservation r2 = new Reservation(102, "Rahul", 1);
+        Worker t1 = new Worker(queue, processor, "Thread-1");
+        Worker t2 = new Worker(queue, processor, "Thread-2");
 
-        service.confirmBooking(r1, history);
-        service.confirmBooking(r2, history);
+        t1.start();
+        t2.start();
 
-        service.cancelBooking(101, history);
-
-        service.cancelBooking(999, history);
+        queue.addRequest(new BookingRequest("Varun", 2));
+        queue.addRequest(new BookingRequest("Rahul", 2));
+        queue.addRequest(new BookingRequest("Anita", 2));
+        queue.addRequest(new BookingRequest("Kiran", 1));
     }
 }
