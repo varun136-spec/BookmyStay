@@ -1,13 +1,21 @@
 import java.util.*;
 
+class InvalidBookingException extends Exception {
+    public InvalidBookingException(String message) {
+        super(message);
+    }
+}
+
 class Reservation {
     private int reservationId;
     private String guestName;
+    private int rooms;
     private double amount;
 
-    public Reservation(int reservationId, String guestName, double amount) {
+    public Reservation(int reservationId, String guestName, int rooms, double amount) {
         this.reservationId = reservationId;
         this.guestName = guestName;
+        this.rooms = rooms;
         this.amount = amount;
     }
 
@@ -19,68 +27,67 @@ class Reservation {
         return guestName;
     }
 
+    public int getRooms() {
+        return rooms;
+    }
+
     public double getAmount() {
         return amount;
     }
 }
 
-class BookingHistory {
-    private List<Reservation> historyList = new ArrayList<>();
+class InvalidBookingValidator {
 
-    public void addReservation(Reservation reservation) {
-        historyList.add(reservation);
-    }
+    public static void validate(Reservation reservation) throws InvalidBookingException {
 
-    public List<Reservation> getAllReservations() {
-        return historyList;
+        if (reservation.getGuestName() == null || reservation.getGuestName().trim().isEmpty()) {
+            throw new InvalidBookingException("Guest name cannot be empty.");
+        }
+
+        if (reservation.getRooms() <= 0) {
+            throw new InvalidBookingException("Number of rooms must be greater than 0.");
+        }
+
+        if (reservation.getAmount() <= 0) {
+            throw new InvalidBookingException("Amount must be greater than 0.");
+        }
     }
 }
 
-class BookingReportService {
+class BookingService {
+    private int availableRooms = 5;
 
-    public void displayAllBookings(List<Reservation> reservations) {
-        if (reservations.isEmpty()) {
-            System.out.println("No bookings found.");
-            return;
+    public void confirmBooking(Reservation reservation) throws InvalidBookingException {
+
+        InvalidBookingValidator.validate(reservation);
+
+        if (reservation.getRooms() > availableRooms) {
+            throw new InvalidBookingException("Not enough rooms available.");
         }
 
-        System.out.println("Booking History:");
-        for (Reservation r : reservations) {
-            System.out.println("ID: " + r.getReservationId() +
-                    ", Guest: " + r.getGuestName() +
-                    ", Amount: ₹" + r.getAmount());
-        }
-    }
+        availableRooms -= reservation.getRooms();
 
-    public void generateSummary(List<Reservation> reservations) {
-        int totalBookings = reservations.size();
-        double totalRevenue = 0;
-
-        for (Reservation r : reservations) {
-            totalRevenue += r.getAmount();
-        }
-
-        System.out.println("\n--- Report Summary ---");
-        System.out.println("Total Bookings: " + totalBookings);
-        System.out.println("Total Revenue: ₹" + totalRevenue);
+        System.out.println("Booking Confirmed for " + reservation.getGuestName());
+        System.out.println("Remaining Rooms: " + availableRooms);
     }
 }
 
 public class BookmyStay {
     public static void main(String[] args) {
 
-        BookingHistory history = new BookingHistory();
-        BookingReportService reportService = new BookingReportService();
+        BookingService service = new BookingService();
 
-        Reservation r1 = new Reservation(101, "Varun", 2500);
-        Reservation r2 = new Reservation(102, "Rahul", 3000);
-        Reservation r3 = new Reservation(103, "Anita", 1800);
+        try {
+            Reservation r1 = new Reservation(101, "Varun", 2, 2500);
+            service.confirmBooking(r1);
 
-        history.addReservation(r1);
-        history.addReservation(r2);
-        history.addReservation(r3);
+            Reservation r2 = new Reservation(102, "", 1, 2000);
+            service.confirmBooking(r2);
 
-        reportService.displayAllBookings(history.getAllReservations());
-        reportService.generateSummary(history.getAllReservations());
+        } catch (InvalidBookingException e) {
+            System.out.println("Booking Failed: " + e.getMessage());
+        }
+
+        System.out.println("System continues running safely...");
     }
 }
